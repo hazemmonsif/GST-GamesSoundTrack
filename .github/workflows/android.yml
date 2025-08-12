@@ -104,36 +104,33 @@ jobs:
           
           # Create new buildozer.spec with explicit Android paths
           cat > buildozer.spec << 'EOF'
-[app]
-title = Game SoundTracks
-package.name = gsd
-package.domain = com.gsd.local
-version = 0.1.0
-entrypoint = main.py
-source.dir = .
-source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
-
-# Python deps (keep it lean)
-requirements = python3,kivy,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna
-garden_requirements = androidx_webview
-
-# Permissions
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
-android.permissions += READ_MEDIA_AUDIO
-android.allow_cleartext = 1
-
-android.api = 33
-android.minapi = 21
-android.ndk_api = 21
-
-# Explicit Android paths
-android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
-android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
-
-[buildozer]
-log_level = 2
-EOF
-
+          [app]
+          title = Game SoundTracks
+          package.name = gsd
+          package.domain = com.gsd.local
+          version = 0.1.0
+          entrypoint = main.py
+          source.dir = .
+          source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
+          
+          requirements = python3,kivy,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna
+          garden_requirements = androidx_webview
+          
+          android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+          android.permissions += READ_MEDIA_AUDIO
+          android.allow_cleartext = 1
+          
+          android.api = 33
+          android.minapi = 21
+          android.ndk_api = 21
+          
+          android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
+          android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
+          
+          [buildozer]
+          log_level = 2
+          EOF
+          
           # Replace placeholders with actual paths
           sed -i "s|ANDROID_SDK_PATH_PLACEHOLDER|$ANDROID_HOME|g" buildozer.spec
           sed -i "s|ANDROID_NDK_PATH_PLACEHOLDER|$ANDROID_HOME/ndk/25.1.8937393|g" buildozer.spec
