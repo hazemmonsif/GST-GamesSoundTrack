@@ -71,6 +71,21 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.33
           
+      - name: Create app icons and assets
+        run: |
+          # Create basic placeholder icons for the app
+          echo "Creating app assets..."
+          
+          # Create a simple colored square as icon (512x512)
+          cat > icon.png << 'EOF'
+          iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAGAV4iHWAAAAABJRU5ErkJggg==
+          EOF
+          
+          # Create presplash
+          cp icon.png presplash.png
+          
+          echo "Placeholder icons created"
+          
       - name: Setup Android SDK manually
         run: |
           # Create Android SDK directory
@@ -114,35 +129,41 @@ jobs:
           # Backup original
           cp buildozer.spec buildozer.spec.bak
           
-          # Create new buildozer.spec for standalone native app
+          # Create new buildozer.spec for proper Android app
           cat > buildozer.spec << 'EOF'
           [app]
           title = Game Soundtracks
-          package.name = gsd
-          package.domain = com.gsd.local
-          version = 0.1.0
+          package.name = gamesoundtracks
+          package.domain = com.gsd.mobile
+          version = 1.0.0
           entrypoint = main.py
           source.dir = .
-          source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
+          source.include_exts = py,png,jpg,jpeg,gif,ico
           
-          requirements = python3,kivy==2.1.0,requests,beautifulsoup4,urllib3,certifi,chardet,idna,pyjnius
+          requirements = python3,kivy==2.1.0,requests,beautifulsoup4,urllib3,certifi,chardet,idna,lxml,pyjnius
           garden_requirements = 
           
-          android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_AUDIO
+          android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
           android.allow_cleartext = 1
-          android.gradle_dependencies = androidx.appcompat:appcompat:1.0.0, androidx.core:core:1.0.0
+          android.gradle_dependencies = androidx.appcompat:appcompat:1.6.1, androidx.core:core:1.10.1
+          android.add_compile_options = sourceCompatibility JavaVersion.VERSION_1_8, targetCompatibility JavaVersion.VERSION_1_8
           
           android.api = 33
           android.minapi = 21
           android.ndk_api = 21
           android.archs = arm64-v8a
           android.accept_sdk_license = True
+          android.orientation = portrait
+          
+          android.icon.filename = %(source.dir)s/icon.png
+          android.presplash.filename = %(source.dir)s/presplash.png
           
           android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
           android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
           
           [buildozer]
           log_level = 2
+          warn_on_root = 1
           EOF
           
           # Replace placeholders with actual paths
