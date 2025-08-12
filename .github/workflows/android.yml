@@ -54,6 +54,11 @@ jobs:
           yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses
           sdkmanager --sdk_root=$ANDROID_HOME --install "build-tools;33.0.0" "platform-tools" "platforms;android-33" "ndk;25.1.8937393"
 
+      - name: Set Android SDK environment variables
+        run: |
+          export ANDROID_HOME=$HOME/Android/Sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+
       - name: Verify SDK installation
         run: |
           sdkmanager --list
