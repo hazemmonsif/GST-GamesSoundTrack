@@ -1,0 +1,29 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip build-essential \
+              openjdk-17-jdk python3 python3-pip python3-dev \
+              libssl-dev libffi-dev libsqlite3-dev zlib1g-dev \
+              libbz2-dev libreadline-dev libncurses5-dev libgdbm-dev
+          python3 -m pip install --upgrade pip
+          pip install buildozer cython
+      - name: Build debug APK
+        run: |
+          buildozer android debug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsd-apk
+          path: bin/*.apk
