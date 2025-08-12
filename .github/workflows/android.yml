@@ -114,7 +114,7 @@ jobs:
           # Backup original
           cp buildozer.spec buildozer.spec.bak
           
-          # Create new buildozer.spec with explicit Android paths
+          # Create new buildozer.spec with explicit Android paths and crash fixes
           cat > buildozer.spec << 'EOF'
           [app]
           title = Game SoundTracks
@@ -125,17 +125,18 @@ jobs:
           source.dir = .
           source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
           
-          requirements = python3,kivy,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna
-          garden_requirements = androidx_webview
+          requirements = python3,kivy==2.1.0,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna,pyjnius
+          garden_requirements = 
           
-          android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
-          android.permissions += READ_MEDIA_AUDIO
+          android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_AUDIO
           android.allow_cleartext = 1
+          android.gradle_dependencies = androidx.appcompat:appcompat:1.0.0, androidx.core:core:1.0.0
           
           android.api = 33
           android.minapi = 21
           android.ndk_api = 21
           android.archs = arm64-v8a
+          android.accept_sdk_license = True
           
           android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
           android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
