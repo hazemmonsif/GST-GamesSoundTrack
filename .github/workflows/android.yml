@@ -114,10 +114,10 @@ jobs:
           # Backup original
           cp buildozer.spec buildozer.spec.bak
           
-          # Create new buildozer.spec with explicit Android paths and crash fixes
+          # Create new buildozer.spec for standalone native app
           cat > buildozer.spec << 'EOF'
           [app]
-          title = Game SoundTracks
+          title = Game Soundtracks
           package.name = gsd
           package.domain = com.gsd.local
           version = 0.1.0
@@ -125,7 +125,7 @@ jobs:
           source.dir = .
           source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
           
-          requirements = python3,kivy==2.1.0,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna,pyjnius
+          requirements = python3,kivy==2.1.0,requests,beautifulsoup4,urllib3,certifi,chardet,idna,pyjnius
           garden_requirements = 
           
           android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_MEDIA_AUDIO
