@@ -80,6 +80,12 @@ jobs:
           mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
           rmdir cmdline-tools/cmdline-tools 2>/dev/null || true
           
+          # Create the legacy tools/bin directory that buildozer expects
+          mkdir -p tools/bin
+          # Create symlinks so buildozer can find sdkmanager in the expected location
+          ln -sf ../../cmdline-tools/latest/bin/sdkmanager tools/bin/sdkmanager
+          ln -sf ../../cmdline-tools/latest/bin/avdmanager tools/bin/avdmanager
+          
           # Set environment variables for this session and future steps
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
@@ -151,10 +157,12 @@ jobs:
           echo "=== Android SDK Structure ==="
           ls -la "$ANDROID_HOME" || echo "Android home not found"
           ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/" || echo "cmdline-tools not found"
+          ls -la "$ANDROID_HOME/tools/bin/" || echo "tools/bin not found"
           echo ""
           echo "=== SDK Manager Test ==="
           which sdkmanager || echo "sdkmanager not in PATH"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list --compact 2>/dev/null | head -10 || echo "sdkmanager failed"
+          "$ANDROID_HOME/tools/bin/sdkmanager" --list --compact 2>/dev/null | head -10 || echo "tools/bin/sdkmanager failed"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list --compact 2>/dev/null | head -10 || echo "cmdline-tools/sdkmanager failed"
           
       - name: Initialize buildozer
         run: |
