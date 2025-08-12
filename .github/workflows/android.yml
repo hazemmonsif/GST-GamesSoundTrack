@@ -1,5 +1,4 @@
 name: Build APK
-
 on:
   push:
     branches:
@@ -11,64 +10,132 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4
+        
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
-
-      - name: Upgrade pip and setuptools
+          python-version: '3.11'
+          
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Cache Android SDK
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.android/sdk
+            ~/.android/avd
+          key: ${{ runner.os }}-android-sdk-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+            
+      - name: Install system dependencies
         run: |
-          python -m pip install --upgrade pip setuptools
-
-      - name: Install Buildozer and dependencies
-        run: |
-          pip install buildozer
           sudo apt-get update
-          sudo apt-get install -y python3-dev build-essential libssl-dev libffi-dev libsqlite3-dev libbz2-dev
-          sudo apt-get install -y openjdk-17-jdk unzip wget
-
-      - name: Install Android SDK Command Line Tools
+          sudo apt-get install -y \
+            python3-dev \
+            build-essential \
+            libssl-dev \
+            libffi-dev \
+            libsqlite3-dev \
+            libbz2-dev \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            liblzma-dev \
+            git \
+            unzip \
+            openjdk-17-jdk
+            
+      - name: Upgrade pip and install Python dependencies
         run: |
-          # Download Android SDK Command Line Tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O cmdline-tools.zip
+          python -m pip install --upgrade pip setuptools wheel
+          pip install buildozer cython==0.29.33
           
-          # Install and configure the Android SDK
-          mkdir -p $HOME/Android/cmdline-tools
-          unzip cmdline-tools.zip -d $HOME/Android/cmdline-tools
-          mkdir -p $HOME/Android/Sdk/cmdline-tools/latest
-          mv $HOME/Android/cmdline-tools/cmdline-tools/* $HOME/Android/Sdk/cmdline-tools/latest/
-
-          # Set environment variables for Android SDK and NDK
-          echo "ANDROID_HOME=$HOME/Android/Sdk" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$HOME/Android/Sdk/ndk/25.1.8937393" >> $GITHUB_ENV
+      - name: Set up Android SDK
+        run: |
+          # Set environment variables
+          export ANDROID_HOME="$HOME/.android/sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           
-          # Add the tools path to the system PATH
+          # Add to GitHub environment for subsequent steps
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
           
-          # Accept licenses and install required components
-          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses
-          sdkmanager --sdk_root=$ANDROID_HOME --install "build-tools;33.0.0" "platform-tools" "platforms;android-33" "ndk;25.1.8937393"
-
-      - name: Set Android SDK environment variables
+          # Create directories
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          
+          # Download and install command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip -q commandlinetools-linux-10406996_latest.zip
+          mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          
+          # Accept licenses first
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          
+          # Install required SDK components
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.0" \
+            "ndk;25.2.9519653"
+            
+      - name: Verify Android SDK installation
         run: |
-          export ANDROID_HOME=$HOME/Android/Sdk
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-
-      - name: Verify SDK installation
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "PATH: $PATH"
+          which sdkmanager || echo "sdkmanager not found in PATH"
+          ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/" || echo "Directory not found"
+          sdkmanager --list --compact 2>/dev/null | head -20 || echo "sdkmanager list failed"
+          
+      - name: Initialize buildozer
         run: |
-          sdkmanager --list
-
+          # Create .buildozer directory to avoid permission issues
+          mkdir -p .buildozer
+          # Initialize buildozer (this creates necessary directories)
+          buildozer android clean || true
+          
       - name: Build APK
         run: |
+          # Set environment for buildozer
+          export ANDROID_HOME="$HOME/.android/sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME" 
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.2.9519653"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          
+          # Build the APK
           buildozer android debug
-
+          
+      - name: List build artifacts
+        run: |
+          echo "Contents of bin directory:"
+          ls -la bin/ || echo "bin directory not found"
+          echo "Contents of .buildozer/android/platform/build-*/bin/:"
+          find .buildozer -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-apk
-          path: ./bin/*.apk
+          name: game-soundtrack-downloader-apk
+          path: |
+            ./bin/*.apk
+            ./.buildozer/android/platform/build-*/bin/*.apk
+          if-no-files-found: error
