@@ -56,9 +56,15 @@ jobs:
             unzip \
             openjdk-17-jdk \
             autoconf \
+            automake \
             libtool \
+            libtool-bin \
             pkg-config \
-            cmake
+            cmake \
+            gettext \
+            libltdl-dev \
+            m4 \
+            texinfo
             
       - name: Install Python dependencies
         run: |
@@ -129,6 +135,7 @@ jobs:
           android.api = 33
           android.minapi = 21
           android.ndk_api = 21
+          android.archs = arm64-v8a
           
           android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
           android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
