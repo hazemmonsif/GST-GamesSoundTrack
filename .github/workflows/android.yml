@@ -73,18 +73,29 @@ jobs:
           
       - name: Create app icons and assets
         run: |
-          # Create basic placeholder icons for the app
+          # Create proper PNG icons for the app
           echo "Creating app assets..."
           
-          # Create a simple colored square as icon (512x512)
-          cat > icon.png << 'EOF'
-          iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChAGAV4iHWAAAAABJRU5ErkJggg==
-          EOF
+          # Install ImageMagick if available, otherwise use a different approach
+          if ! command -v convert &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y imagemagick
+          fi
           
-          # Create presplash
-          cp icon.png presplash.png
+          # Create app icon (512x512)
+          convert -size 512x512 xc:"#2196F3" \
+            -fill white -pointsize 180 -gravity center \
+            -annotate +0+0 "♪" \
+            icon.png
           
-          echo "Placeholder icons created"
+          # Create presplash (512x512)
+          convert -size 512x512 xc:"#1976D2" \
+            -fill white -pointsize 80 -gravity center \
+            -annotate +0-40 "Game" \
+            -annotate +0+40 "Soundtracks" \
+            presplash.png
+          
+          echo "Icons created successfully"
+          ls -la *.png
           
       - name: Setup Android SDK manually
         run: |
@@ -129,7 +140,7 @@ jobs:
           # Backup original
           cp buildozer.spec buildozer.spec.bak
           
-          # Create new buildozer.spec for proper Android app
+          # Create new buildozer.spec for proper Android app (without lxml)
           cat > buildozer.spec << 'EOF'
           [app]
           title = Game Soundtracks
@@ -140,7 +151,7 @@ jobs:
           source.dir = .
           source.include_exts = py,png,jpg,jpeg,gif,ico
           
-          requirements = python3,kivy==2.1.0,requests,beautifulsoup4,urllib3,certifi,chardet,idna,lxml,pyjnius
+          requirements = python3,kivy==2.1.0,requests,beautifulsoup4,urllib3,certifi,chardet,idna,pyjnius
           garden_requirements = 
           
           android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
