@@ -12,7 +12,6 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify, Response
 
 def default_download_dir():
-    # Android? Use public Downloads
     if 'ANDROID_ARGUMENT' in os.environ:
         try:
             from android.storage import primary_external_storage_path
@@ -2036,3 +2035,4 @@ if __name__ == "__main__":
             except Exception:
                 pass
         sys.exit(1)
+
