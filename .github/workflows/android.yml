@@ -34,13 +34,13 @@ jobs:
 
       - name: Install SDK components (auto-accept licenses)
         run: |
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "build-tools;33.0.2" \
             "platforms;android-33" \
             "ndk;25.1.8937393"
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
-          sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --list | head -n 20
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --list | head -n 20
 
       - name: Build debug APK
         run: buildozer android debug
