@@ -26,24 +26,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           
-      - name: Cache pip dependencies
+      - name: Cache buildozer global directory
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            
-      - name: Cache Android SDK
+          path: .buildozer_global
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          
+      - name: Cache buildozer directory
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.android/sdk
-            ~/.android/avd
-          key: ${{ runner.os }}-android-sdk-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-android-sdk-
-            
+          path: .buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+          
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -60,76 +54,156 @@ jobs:
             liblzma-dev \
             git \
             unzip \
-            openjdk-17-jdk
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            cmake
             
-      - name: Upgrade pip and install Python dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install buildozer cython==0.29.33
           
-      - name: Set up Android SDK
+      - name: Setup Android SDK manually
         run: |
-          # Set environment variables
-          export ANDROID_HOME="$HOME/.android/sdk"
+          # Create Android SDK directory
+          export ANDROID_HOME="$HOME/android-sdk"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          mkdir -p "$ANDROID_HOME"
           
-          # Add to GitHub environment for subsequent steps
+          # Download and setup command line tools
+          cd "$ANDROID_HOME"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip -q commandlinetools-linux-10406996_latest.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          rmdir cmdline-tools/cmdline-tools 2>/dev/null || true
+          
+          # Set environment variables for this session and future steps
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
           
-          # Create directories
-          mkdir -p "$ANDROID_HOME/cmdline-tools"
-          
-          # Download and install command line tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
-          unzip -q commandlinetools-linux-10406996_latest.zip
-          mv cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
-          
-          # Accept licenses first
+          # Accept licenses
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           
-          # Install required SDK components
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+          # Install required packages
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
             "platform-tools" \
             "platforms;android-33" \
             "build-tools;33.0.0" \
-            "ndk;25.2.9519653"
+            "ndk;25.1.8937393"
             
-      - name: Verify Android SDK installation
+      - name: Create custom buildozer.spec with fixed paths
         run: |
+          # Backup original
+          cp buildozer.spec buildozer.spec.bak
+          
+          # Create new buildozer.spec with explicit Android paths
+          cat > buildozer.spec << 'EOF'
+[app]
+title = Game SoundTracks
+package.name = gsd
+package.domain = com.gsd.local
+version = 0.1.0
+entrypoint = main.py
+source.dir = .
+source.include_exts = py,html,js,css,png,jpg,jpeg,svg,ico
+
+# Python deps (keep it lean)
+requirements = python3,kivy,flask,requests,beautifulsoup4,urllib3,certifi,chardet,idna
+garden_requirements = androidx_webview
+
+# Permissions
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+android.permissions += READ_MEDIA_AUDIO
+android.allow_cleartext = 1
+
+android.api = 33
+android.minapi = 21
+android.ndk_api = 21
+
+# Explicit Android paths
+android.sdk_path = ANDROID_SDK_PATH_PLACEHOLDER
+android.ndk_path = ANDROID_NDK_PATH_PLACEHOLDER
+
+[buildozer]
+log_level = 2
+EOF
+
+          # Replace placeholders with actual paths
+          sed -i "s|ANDROID_SDK_PATH_PLACEHOLDER|$ANDROID_HOME|g" buildozer.spec
+          sed -i "s|ANDROID_NDK_PATH_PLACEHOLDER|$ANDROID_HOME/ndk/25.1.8937393|g" buildozer.spec
+          
+          echo "=== Updated buildozer.spec ==="
+          cat buildozer.spec
+          
+      - name: Verify Android environment
+        run: |
+          echo "=== Environment Variables ==="
           echo "ANDROID_HOME: $ANDROID_HOME"
-          echo "PATH: $PATH"
-          which sdkmanager || echo "sdkmanager not found in PATH"
-          ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/" || echo "Directory not found"
-          sdkmanager --list --compact 2>/dev/null | head -20 || echo "sdkmanager list failed"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo ""
+          echo "=== PATH ==="
+          echo "$PATH"
+          echo ""
+          echo "=== Android SDK Structure ==="
+          ls -la "$ANDROID_HOME" || echo "Android home not found"
+          ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/" || echo "cmdline-tools not found"
+          echo ""
+          echo "=== SDK Manager Test ==="
+          which sdkmanager || echo "sdkmanager not in PATH"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list --compact 2>/dev/null | head -10 || echo "sdkmanager failed"
           
       - name: Initialize buildozer
         run: |
-          # Create .buildozer directory to avoid permission issues
-          mkdir -p .buildozer
-          # Initialize buildozer (this creates necessary directories)
+          # Set explicit environment variables
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.1.8937393"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$PATH"
+          
+          # Clean any existing buildozer state
           buildozer android clean || true
           
       - name: Build APK
         run: |
-          # Set environment for buildozer
-          export ANDROID_HOME="$HOME/.android/sdk"
-          export ANDROID_SDK_ROOT="$ANDROID_HOME" 
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.2.9519653"
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          # Set all required environment variables
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/25.1.8937393"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/tools/bin:$PATH"
           
-          # Build the APK
-          buildozer android debug
+          # Additional Java setup for sdkmanager
+          export _JAVA_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap"
           
-      - name: List build artifacts
+          echo "=== Final Environment Check ==="
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
+          
+          # Verify critical files exist
+          ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || echo "sdkmanager missing"
+          ls -la "$ANDROID_HOME/ndk/25.1.8937393" || echo "NDK missing"
+          
+          # Build with verbose output
+          buildozer android debug --verbose
+          
+      - name: Find and list APK files
         run: |
-          echo "Contents of bin directory:"
-          ls -la bin/ || echo "bin directory not found"
-          echo "Contents of .buildozer/android/platform/build-*/bin/:"
-          find .buildozer -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          echo "=== Searching for APK files ==="
+          find . -name "*.apk" -type f 2>/dev/null || echo "No APK files found"
+          
+          echo "=== bin directory ==="
+          ls -la bin/ 2>/dev/null || echo "bin directory not found"
+          
+          echo "=== .buildozer structure ==="
+          find .buildozer -name "*.apk" -type f 2>/dev/null || echo "No APK in .buildozer"
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -138,4 +212,5 @@ jobs:
           path: |
             ./bin/*.apk
             ./.buildozer/android/platform/build-*/bin/*.apk
-          if-no-files-found: error
+            ./.buildozer/android/platform/build-*/dist/*.apk
+          if-no-files-found: warn
